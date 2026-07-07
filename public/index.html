@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="referrer" content="no-referrer" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://*.workers.dev; style-src 'self' 'unsafe-inline'; script-src 'self'; base-uri 'none'; form-action 'self';" />
+<title>Widget Identity Tool</title>
+<style>
+  :root {
+    --bg: #0b0d10;
+    --surface: #14171c;
+    --surface-2: #1b1f26;
+    --border: #262b33;
+    --text: #e8eaed;
+    --muted: #8b92a0;
+    --accent: #4f8fe8;
+    --accent-dim: #2c4f7c;
+    --success: #3dd68c;
+    --error: #e8555a;
+    --radius: 6px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 48px 20px 80px;
+  }
+
+  .wrap {
+    width: 100%;
+    max-width: 640px;
+  }
+
+  header {
+    margin-bottom: 32px;
+  }
+
+  .eyebrow {
+    color: var(--accent);
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin: 0 0 10px;
+  }
+
+  h1 {
+    font-size: 22px;
+    font-weight: 600;
+    margin: 0 0 12px;
+    letter-spacing: -0.01em;
+  }
+
+  .lede {
+    color: var(--muted);
+    font-size: 14px;
+    max-width: 54ch;
+    margin: 0;
+  }
+
+  .lede a { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--accent-dim); }
+  .lede a:hover { border-bottom-color: var(--accent); }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+
+  .panel + .panel { margin-top: 20px; }
+
+  label {
+    display: block;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 6px;
+    letter-spacing: 0.02em;
+  }
+
+  .field { margin-bottom: 18px; }
+  .field:last-child { margin-bottom: 0; }
+
+  input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 14px;
+    padding: 11px 12px;
+    outline: none;
+    transition: border-color 0.15s ease;
+  }
+
+  input::placeholder { color: #4a505c; }
+
+  input:focus {
+    border-color: var(--accent);
+  }
+
+  input.invalid {
+    border-color: var(--error);
+  }
+
+  .hint {
+    font-size: 12px;
+    color: #5a6070;
+    margin-top: 6px;
+  }
+
+  .hint.error { color: var(--error); }
+
+  button {
+    width: 100%;
+    background: var(--accent);
+    color: #06121f;
+    border: none;
+    border-radius: var(--radius);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 13px 16px;
+    cursor: pointer;
+    transition: background 0.15s ease, opacity 0.15s ease;
+    margin-top: 4px;
+  }
+
+  button:hover:not(:disabled) { background: #6ba0ee; }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  button:focus-visible, input:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .preview-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+
+  .preview-label span:first-child {
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 0.02em;
+  }
+
+  .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    display: inline-block;
+    margin-inline-end: 6px;
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+  }
+
+  pre {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    font-size: 12.5px;
+    line-height: 1.7;
+    overflow-x: auto;
+    margin: 0;
+    color: #b8c4d9;
+  }
+
+  pre .k { color: var(--accent); }
+  pre .s { color: #a3d977; }
+  pre .redacted { color: #5a6070; font-style: italic; }
+
+  #status {
+    margin-top: 16px;
+    padding: 12px 14px;
+    border-radius: var(--radius);
+    font-size: 13px;
+    display: none;
+    border: 1px solid transparent;
+  }
+
+  #status.show { display: block; }
+  #status.ok { background: rgba(61,214,140,0.08); border-color: rgba(61,214,140,0.3); color: var(--success); }
+  #status.fail { background: rgba(232,85,90,0.08); border-color: rgba(232,85,90,0.3); color: var(--error); }
+  #status.pending { background: rgba(79,143,232,0.08); border-color: rgba(79,143,232,0.3); color: var(--accent); }
+
+  details {
+    margin-top: 28px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 4px 16px;
+  }
+
+  summary {
+    cursor: pointer;
+    padding: 12px 0;
+    font-size: 13px;
+    color: var(--muted);
+    letter-spacing: 0.02em;
+  }
+
+  details[open] summary { color: var(--text); }
+
+  .faq p, .faq ul {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.7;
+  }
+
+  .faq ul { padding-inline-start: 18px; }
+  .faq code {
+    background: var(--surface-2);
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: var(--text);
+    font-size: 12px;
+  }
+
+  footer {
+    margin-top: 40px;
+    font-size: 12px;
+    color: #4a505c;
+    text-align: center;
+  }
+
+  footer a { color: var(--muted); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .dot { animation: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">discord widget setup</p>
+    <h1>Application Identity, without the terminal</h1>
+    <p class="lede">
+      This does one thing: it sends the one-time PATCH request Discord
+      requires to link your widget to your account. No PowerShell, no curl.
+      The source for this page and its proxy is on
+      <a href="https://github.com/xgg-2/widget-tool" target="_blank" rel="noopener">GitHub</a>.
+    </p>
+  </header>
+
+  <form class="panel" id="form" autocomplete="off">
+    <div class="field">
+      <label for="appId">Application ID</label>
+      <input id="appId" name="appId" inputmode="numeric" placeholder="1520518546805887076" spellcheck="false" />
+      <div class="hint" id="appIdHint">Developer Portal - General Information</div>
+    </div>
+
+    <div class="field">
+      <label for="userId">Your Discord User ID</label>
+      <input id="userId" name="userId" inputmode="numeric" placeholder="1159928250148077728" spellcheck="false" />
+      <div class="hint" id="userIdHint">Settings - Advanced - Developer Mode, then right-click your name - Copy User ID</div>
+    </div>
+
+    <div class="field">
+      <label for="botToken">Bot Token</label>
+      <input id="botToken" name="botToken" type="password" placeholder="Reset it right before pasting it here" spellcheck="false" />
+      <div class="hint" id="botTokenHint">Developer Portal - Bot - Reset Token. Never reuse an old one.</div>
+    </div>
+
+    <button type="submit" id="submitBtn">Send identity request</button>
+    <div id="status"></div>
+  </form>
+
+  <div class="panel">
+    <div class="preview-label">
+      <span><span class="dot"></span>exactly what gets sent</span>
+    </div>
+    <pre id="preview">PATCH /api/v9/applications/<span class="redacted">...</span>/users/<span class="redacted">...</span>/identities/0/profile
+<span class="k">Authorization:</span> Bot <span class="redacted">........</span>
+<span class="k">Content-Type:</span> <span class="s">application/json</span>
+
+{ <span class="k">"username"</span>: <span class="s">"widget"</span> }</pre>
+  </div>
+
+  <details class="faq">
+    <summary>What is this, and what does it not do?</summary>
+    <div>
+      <p>
+        It relays one fixed request to Discord's own API, because browsers
+        block direct calls to <code>discord.com/api</code> from other sites
+        (CORS). The proxy is a small, stateless Cloudflare Worker. It
+        doesn't write your token anywhere, doesn't log it, and forwards it
+        to Discord and nowhere else.
+      </p>
+      <p>This does not:</p>
+      <ul>
+        <li>Design your widget or set up its fields - do that in the Developer Portal first</li>
+        <li>Update your widget's live data - that's your own bot's job, on a schedule</li>
+        <li>Store, reuse, or need your token again after this one request</li>
+      </ul>
+    </div>
+  </details>
+
+  <footer>
+    source available on GitHub
+  </footer>
+</div>
+
+<script>
+  const WORKER_URL = "https://YOUR-WORKER.YOUR-SUBDOMAIN.workers.dev";
+
+  const $ = (id) => document.getElementById(id);
+  const appIdEl = $("appId");
+  const userIdEl = $("userId");
+  const tokenEl = $("botToken");
+  const previewEl = $("preview");
+  const statusEl = $("status");
+  const btn = $("submitBtn");
+  const form = $("form");
+
+  const SNOWFLAKE = /^\d{15,25}$/;
+
+  function redactToken(t) {
+    if (!t) return "........";
+    if (t.length <= 8) return "*".repeat(t.length);
+    return t.slice(0, 4) + "..." + t.slice(-4);
+  }
+
+  function updatePreview() {
+    const app = appIdEl.value.trim() || "...";
+    const user = userIdEl.value.trim() || "...";
+    const tok = redactToken(tokenEl.value.trim());
+
+    previewEl.innerHTML =
+      `PATCH /api/v9/applications/<span class="redacted">${escapeHtml(app)}</span>/users/<span class="redacted">${escapeHtml(user)}</span>/identities/0/profile\n` +
+      `<span class="k">Authorization:</span> Bot <span class="redacted">${escapeHtml(tok)}</span>\n` +
+      `<span class="k">Content-Type:</span> <span class="s">application/json</span>\n\n` +
+      `{ <span class="k">"username"</span>: <span class="s">"widget"</span> }`;
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    }[c]));
+  }
+
+  [appIdEl, userIdEl, tokenEl].forEach((el) => {
+    el.addEventListener("input", updatePreview);
+  });
+
+  function setStatus(kind, message) {
+    statusEl.className = "show " + kind;
+    statusEl.textContent = message;
+  }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const applicationId = appIdEl.value.trim();
+    const userId = userIdEl.value.trim();
+    const botToken = tokenEl.value.trim();
+
+    if (!SNOWFLAKE.test(applicationId)) {
+      setStatus("fail", "Application ID doesn't look like a Discord ID (15-25 digits).");
+      appIdEl.focus();
+      return;
+    }
+    if (!SNOWFLAKE.test(userId)) {
+      setStatus("fail", "User ID doesn't look like a Discord ID (15-25 digits).");
+      userIdEl.focus();
+      return;
+    }
+    if (botToken.length < 20 || /\s/.test(botToken)) {
+      setStatus("fail", "That doesn't look like a full bot token - check for missing characters or stray spaces.");
+      tokenEl.focus();
+      return;
+    }
+
+    btn.disabled = true;
+    setStatus("pending", "Sending request to Discord...");
+
+    try {
+      const res = await fetch(WORKER_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ applicationId, userId, botToken }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (res.ok) {
+        setStatus("ok", "Done. Your application identity was created. If your widget shows draft, publish it from the Developer Portal.");
+        tokenEl.value = "";
+        updatePreview();
+      } else if (res.status === 401) {
+        setStatus("fail", "Discord rejected the token (401 Unauthorized). Reset the bot token and try again with the new one.");
+      } else if (res.status === 400) {
+        setStatus("fail", "Discord rejected the request - double-check the Application ID and User ID.");
+      } else {
+        setStatus("fail", `Discord returned an error (${res.status}). ${data.message || ""}`.trim());
+      }
+    } catch (err) {
+      setStatus("fail", "Could not reach the proxy. Check your connection, or the Worker may be down.");
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  updatePreview();
+</script>
+</body>
+</html>
